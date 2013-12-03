@@ -118,10 +118,12 @@ namespace hmmlib {
 		
     template<typename Table>
     static inline void 
-    reset(float_type val, Table &T) {
-      for(int r = 0; r < T.get_no_rows(); ++r) {
-	for(int chunk = 0; chunk < T.get_no_chunks_per_row(); ++chunk)
-	  T.get_chunk(r, chunk) = _mm_set_pd1(val);
+    reset(float_type val, Table &T)
+    {
+      for(int r = 0; r < T.get_no_rows(); ++r){
+        for(int chunk = 0; chunk < T.get_no_chunks_per_row(); ++chunk){
+          T.get_chunk(r, chunk) = _mm_set_pd1(val);
+        }
       }
     }
 		

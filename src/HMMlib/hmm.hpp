@@ -317,24 +317,33 @@ namespace hmmlib {
     for(chunk = 0; chunk < no_chunks; ++chunk)
       F.get_chunk(0,chunk) *= scale;
 
-    for(int i = 1; i < length; ++i) { // filling in i'th row of F: F(i, -)
+    cerr << "main_loop" << endl;
+    double percentage = 0;
+    for (int i = 1; i < length; ++i) { // filling in i'th row of F: F(i, -)
+
+        if (i/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       x = obsseq[i];
       #ifdef WITH_OMP
       #pragma omp parallel for
       #endif
       for(int j = 0; j < no_states; ++j) { // filling in F(i,j)
-	sse_float_type prob_sum;
-	sse_operations_traits::set_all(prob_sum, (float_type) 0.0);
-	for(int c = 0; c < no_chunks; ++c)
-	  prob_sum += F.get_chunk(i-1, c) * T_t.get_chunk(j, c);
-	sse_operations_traits::sum(prob_sum);
-	sse_operations_traits::store(F(i,j), prob_sum);
+        sse_float_type prob_sum;
+        sse_operations_traits::set_all(prob_sum, (float_type) 0.0);
+        for(int c = 0; c < no_chunks; ++c)
+          prob_sum += F.get_chunk(i-1, c) * T_t.get_chunk(j, c);
+        sse_operations_traits::sum(prob_sum);
+        sse_operations_traits::store(F(i,j), prob_sum);
       }
 
       sse_operations_traits::set_all(scale, (float_type) 0.0);
       for(int c = 0; c < no_chunks; ++c) {
-	F.get_chunk(i, c) *= E.get_chunk(x,c);
-	scale += F.get_chunk(i, c);
+        F.get_chunk(i, c) *= E.get_chunk(x,c);
+        scale += F.get_chunk(i, c);
       }
       sse_operations_traits::sum(scale);
       sse_operations_traits::store(scales(i), scale);
@@ -344,7 +353,7 @@ namespace hmmlib {
       scales(i) = 1.0 / scales(i);
       sse_operations_traits::set_all(scale, scales(i));
       for(int chunk = 0; chunk < no_chunks; ++chunk)
-	F.get_chunk(i,chunk) *= scale;
+        F.get_chunk(i,chunk) *= scale;
     }
   }
 	
@@ -377,22 +386,30 @@ namespace hmmlib {
       B.get_chunk(length-1,sc) = scale;
 		
     // Recursion
-    for(int i = length - 1; i > 0; --i) { // fill in the (i-1)'th row of B
+    double percentage = 0;
+    for (int i = length - 1; i > 0; --i) { // fill in the (i-1)'th row of B
+
+        if ((length - i)/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       int x = obsseq[i];
       #ifdef WITH_OMP
       #pragma omp parallel for
       #endif
       for(int s = 0; s < no_states; ++s) { // fill in B(i-1,s)
-	sse_float_type prob_sum;
-	sse_operations_traits::set_all(prob_sum, 0.0);
+        sse_float_type prob_sum;
+        sse_operations_traits::set_all(prob_sum, 0.0);
 
-	for(int chunk = 0; chunk < no_chunks; ++chunk)
-	  prob_sum += T.get_chunk(s, chunk) * E.get_chunk(x, chunk) * B.get_chunk(i, chunk);
+        for(int chunk = 0; chunk < no_chunks; ++chunk)
+          prob_sum += T.get_chunk(s, chunk) * E.get_chunk(x, chunk) * B.get_chunk(i, chunk);
 
-	sse_operations_traits::sum(prob_sum);
-	float_type sum;
-	sse_operations_traits::store(sum, prob_sum);
-	B(i-1,s) = sum * scales(i-1);
+        sse_operations_traits::sum(prob_sum);
+        float_type sum;
+        sse_operations_traits::store(sum, prob_sum);
+        B(i-1,s) = sum * scales(i-1);
       }
     }
   }

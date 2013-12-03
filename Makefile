@@ -1,5 +1,7 @@
 CXX = g++
-CXXFLAGS = -Wall -msse3 -fexceptions -g
+COMMON_FLAGS = -fopenmp
+CXXFLAGS = -Wall -msse3 -fexceptions -g $(COMMON_FLAGS)
+LINKER_FLAGS = $(COMMON_FLAGS)
 
 SRCDIR = src
 OUTDIR = bin
@@ -18,7 +20,7 @@ $(PRECOMPILED): $(SRCDIR)/$(PRECOMPILED_HEADER)
 	$(CXX) $(CXXFLAGS) $(SRCDIR)/$(PRECOMPILED_HEADER)
 
 $(EXEC): $(OBJECTS)
-	$(CXX) $(OBJECTS) -o $(EXEC)
+	$(CXX) $(LINKER_FLAGS) $(OBJECTS) -o $(EXEC)
 
 $(OBJECTS): $(OUTDIR)/%.o : $(SRCDIR)/%.cpp
 	mkdir -p $(OUTDIR)

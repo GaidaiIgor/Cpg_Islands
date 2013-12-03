@@ -3,6 +3,8 @@
 
 #if defined __cplusplus
 
+//#define WITH_OMP
+
 #include <fstream>
 #include <iostream>
 #include <map>

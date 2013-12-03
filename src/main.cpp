@@ -1,3 +1,6 @@
+#define DEBUG
+#define WITH_OMP
+
 void Sequence_Stats(string sequence)
 {
     uint cg_counter = 0;
@@ -43,37 +46,66 @@ void Sequence_Stats(string sequence)
          << cpg_counter/(double)(c_counter*g_counter)*sequence.length()*100 << "%" << endl;
 }
 
+void Print_Cpg(sequence hidden_sequence)
+{
+    uint start_cpg = 0;
+    bool is_open_cpg = false;
+    for (ull i = 0; i < hidden_sequence.size(); ++i)
+    {
+        if (hidden_sequence[i] < 4)
+        {
+            if (!is_open_cpg)
+            {
+                start_cpg = i;
+                is_open_cpg = true;
+            }
+        }
+        else
+        {
+            if (is_open_cpg)
+            {
+                cout << "chr1\t" << start_cpg << "\t" << i << endl;
+                is_open_cpg = false;
+            }
+        }
+    }
+}
+
 int main(int argc, char **args)
 {
-    ifstream input_sequence("input_sequence.txt");
     ifstream input_initial_probabilities("initial_probabilities.txt");
     ifstream input_transition_probabilities("transition_probabilities.txt");
     ifstream input_emission_probabilities("emission_probabilities.txt");
-    string next_value;
-    map<char, ushort> nucleotides_mapping;
-    vector<char> state_mapping(8);
+
+    vector<int> nucleotides_mapping(127, -1);
     nucleotides_mapping['a'] = 0;
     nucleotides_mapping['c'] = 1;
     nucleotides_mapping['g'] = 2;
     nucleotides_mapping['t'] = 3;
-    state_mapping[0] = 'A';
-    state_mapping[1] = 'C';
-    state_mapping[2] = 'G';
-    state_mapping[3] = 'T';
-    state_mapping[4] = 'a';
-    state_mapping[5] = 'c';
-    state_mapping[6] = 'g';
-    state_mapping[7] = 't';
+
+//    vector<char> state_mapping(8);
+//    state_mapping[0] = 'A';
+//    state_mapping[1] = 'C';
+//    state_mapping[2] = 'G';
+//    state_mapping[3] = 'T';
+//    state_mapping[4] = 'a';
+//    state_mapping[5] = 'c';
+//    state_mapping[6] = 'g';
+//    state_mapping[7] = 't';
+
+#ifdef DEBUG
+    cerr << "DEBUG" << endl;
+    freopen("chr1.fa", "rt", stdin);
+#endif
+
     string observed;
 
     string line;
-    while (!input_sequence.eof())
+    while (!cin.eof())
     {
-        getline(input_sequence, line);
+        cin >> line;
         observed += line;
     }
-
-    input_sequence.close();
 
     transform(observed.begin(), observed.end(), observed.begin(), ::tolower);
 
@@ -96,6 +128,7 @@ int main(int argc, char **args)
     HMMVector<double> &initial_probabilities = *initial_probabilities_sptr;
     // initial probabilities
     ushort i = 0;
+    string next_value;
     for (ushort i = 0; i < number_of_states; ++i)
     {
         input_initial_probabilities >> next_value;
@@ -169,27 +202,35 @@ int main(int argc, char **args)
     cerr << "Constructing HMM" << endl;
     HMM<double> hmm(initial_probabilities_sptr, transition_probabilities_sptr, emission_probabilities_sptr);
 
-    sequence observed_sequence(observed.length());
+    sequence observed_sequence;
+    observed_sequence.reserve(observed.length());
 
     for (ull i = 0; i < observed.length(); ++i)
     {
-        observed_sequence[i] = nucleotides_mapping[observed[i]];
+        if (observed[i] != 'a' && observed[i] != 'c' && observed[i] != 'g' && observed[i] != 't' && observed[i] != 'n')
+        {
+            cerr << 'Unexpected character. Possible characters are a, c, g, t, n (in any case)' << endl;
+            return 1;
+        }
+
+        if (observed[i] != 'n')
+        {
+            observed_sequence.push_back(nucleotides_mapping[observed[i]]);
+        }
     }
 
-    cerr << "Running viterbi" << endl;
-    sequence hidden_sequence(observed.length());
-    double log_likelihood = hmm.viterbi(observed_sequence, hidden_sequence);
+    double log_likelihood;
+//    cerr << "Running viterbi" << endl;
+    sequence hidden_sequence;
+    hidden_sequence.resize(observed_sequence.size());
+//    log_likelihood = hmm.viterbi(observed_sequence, hidden_sequence);
+//    cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
 
-    for (ull i = 0; i < observed.length(); ++i)
-    {
-        cerr << state_mapping[hidden_sequence[i]];
-    }
+//    Print_Cpg(hidden_sequence);
 
-    cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
-
+    HMMMatrix<double> forward_dynamic(observed_sequence.size(), number_of_states);
+    HMMVector<double> scales(observed_sequence.size());
     cerr << "Running forward" << endl;
-    HMMMatrix<double> forward_dynamic(observed.length(), number_of_states);
-    HMMVector<double> scales(observed.length());
     hmm.forward(observed_sequence, scales, forward_dynamic);
 
     cerr << "Running likelihood" << endl;
@@ -197,11 +238,11 @@ int main(int argc, char **args)
     cerr << "Log likelihood of observed sequence: " << log_likelihood << endl;
 
     cerr << "Running backward" << endl;
-    HMMMatrix<double> backward_dynamic(observed.length(), number_of_states);
+    HMMMatrix<double> backward_dynamic(observed_sequence.size(), number_of_states);
     hmm.backward(observed_sequence, scales, backward_dynamic);
 
     cerr << "Running posterior decoding" << endl;
-    HMMMatrix<double> posterior_decoding(observed.length(), number_of_states);
+    HMMMatrix<double> posterior_decoding(observed_sequence.size(), number_of_states);
     hmm.posterior_decoding(observed_sequence, forward_dynamic, backward_dynamic, scales, posterior_decoding);
 
     cerr << "Running Baum-Welch" << endl;
@@ -224,11 +265,10 @@ int main(int argc, char **args)
 
     cerr << "Running viterbi" << endl;
     log_likelihood = new_hmm.viterbi(observed_sequence, hidden_sequence);
-
-    for (ull i = 0; i < observed.length(); ++i)
-    {
-        cerr << state_mapping[hidden_sequence[i]];
-    }
-
     cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
+
+    cout << endl;
+    Print_Cpg(hidden_sequence);
+
+    return 0;
 }
