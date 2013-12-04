@@ -1,5 +1,5 @@
 CXX = g++
-COMMON_FLAGS = -fopenmp
+COMMON_FLAGS =
 CXXFLAGS = -Wall -msse3 -fexceptions -g $(COMMON_FLAGS)
 LINKER_FLAGS = $(COMMON_FLAGS)
 

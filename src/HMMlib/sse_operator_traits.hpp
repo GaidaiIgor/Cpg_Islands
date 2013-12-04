@@ -22,8 +22,7 @@
 #ifndef SSE_OPERATOR_TRAITS_HPP
 #define SSE_OPERATOR_TRAITS_HPP
 
-#include <pmmintrin.h>
-#include <algorithm>
+#include "../precompiled.h"
 
 namespace hmmlib {
 	

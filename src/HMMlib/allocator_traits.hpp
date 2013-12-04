@@ -22,8 +22,7 @@
 #ifndef ALLOCATOR_TRAITS_HPP
 #define ALLOCATOR_TRAITS_HPP
 
-#include <pmmintrin.h>
-#include <cstdlib>
+#include "../precompiled.h"
 
 namespace hmmlib {
 
@@ -38,6 +37,12 @@ namespace hmmlib {
       T.no_rows = rows;
 			
       T.table = static_cast<float_type *>( malloc(T.no_allocated_columns * T.no_rows * sizeof(float_type)));
+
+      if (T.table == NULL)
+      {
+          std::cerr << "Not enough memory" << std::endl;
+          throw("out_of_memory");
+      }
     }
 		
     template<typename Table>
@@ -57,14 +62,25 @@ namespace hmmlib {
       int floats_per_chunk = sizeof(sse_float_type) / sizeof(float_type);
 			
       if(columns % floats_per_chunk == 0)
-	T.no_chunks_per_row = columns / floats_per_chunk; // integer division
+      {
+        T.no_chunks_per_row = columns / floats_per_chunk; // integer division
+      }
       else
-	T.no_chunks_per_row = (columns / floats_per_chunk) + 1;
+      {
+        T.no_chunks_per_row = (columns / floats_per_chunk) + 1;
+      }
+
       T.no_rows = rows;
       T.no_columns = columns;
       T.no_allocated_columns = T.no_chunks_per_row * floats_per_chunk;
 			
       T.table = static_cast<float_type *>( _mm_malloc(T.no_allocated_columns * T.no_rows * sizeof(float_type), 16));
+
+      if (T.table == NULL)
+      {
+          std::cerr << "Not enough memory" << std::endl;
+          throw("out_of_memory");
+      }
     }
 		
     template<typename Table>
@@ -83,14 +99,24 @@ namespace hmmlib {
       int floats_per_chunk = sizeof(sse_float_type) / sizeof(float_type);
 			
       if(columns % floats_per_chunk == 0)
-	T.no_chunks_per_row = columns / floats_per_chunk; // integer division
+      {
+        T.no_chunks_per_row = columns / floats_per_chunk; // integer division
+      }
       else
-	T.no_chunks_per_row = (columns / floats_per_chunk) + 1;
+      {
+        T.no_chunks_per_row = (columns / floats_per_chunk) + 1;
+      }
       T.no_rows = rows;
       T.no_columns = columns;
       T.no_allocated_columns = T.no_chunks_per_row * floats_per_chunk;
 			
       T.table = static_cast<float_type *>( _mm_malloc(T.no_allocated_columns * T.no_rows * sizeof(float_type), 16));
+
+      if (T.table == NULL)
+      {
+          std::cerr << "Not enough memory" << std::endl;
+          throw("out_of_memory");
+      }
     }
 		
     template<typename Table>

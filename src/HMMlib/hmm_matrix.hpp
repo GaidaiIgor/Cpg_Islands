@@ -22,6 +22,7 @@
 #ifndef HMM_MATRIX_HPP
 #define HMM_MATRIX_HPP
 
+#include "../precompiled.h"
 #include "hmm_table.hpp"
 
 namespace hmmlib {

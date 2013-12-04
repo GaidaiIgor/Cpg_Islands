@@ -22,11 +22,10 @@
 #ifndef HMM_TABLE_HPP
 #define HMM_TABLE_HPP
 
+#include "../precompiled.h"
 #include "allocator_traits.hpp"
 #include "operator_traits.hpp"
 #include "float_traits.hpp"
-
-#include <pmmintrin.h>
 
 namespace hmmlib {
 
@@ -44,10 +43,10 @@ namespace hmmlib {
 		
     // member fields
     float_type *table;
-    int no_rows;
-    int no_columns;
-    int no_allocated_columns;
-    int no_chunks_per_row;
+    uint no_rows;
+    uint no_columns;
+    uint no_allocated_columns;
+    uint no_chunks_per_row;
 		
   public:
     /**
@@ -69,7 +68,7 @@ namespace hmmlib {
      * float_type is \a float, sse_float_type must be either \a __m128
      * (default) or \a float.
      */
-    HMMTable(int no_rows, int no_columns, float_type val = 0.0);
+    HMMTable(uint no_rows, uint no_columns, float_type val = 0.0);
 
     /**
      * \brief Destruct the HMMtable.
@@ -87,7 +86,7 @@ namespace hmmlib {
      *
      * Access the \f$(row,col)\f$th entry in the table.
      */
-    float_type &operator()(int row, int col);
+    float_type &operator()(uint row, uint col);
 
     /**
      * \brief Get the \f$(row,col)\f$th entry in the table.
@@ -97,7 +96,7 @@ namespace hmmlib {
      *
      * Get the \f$(row,col)\f$th entry in the table.
      */
-    const float_type &operator()(int row, int col) const;
+    const float_type &operator()(uint row, uint col) const;
 
     /**
      * \brief Access the \f$chunk\f$th chunk in the indicated row.
@@ -117,7 +116,7 @@ namespace hmmlib {
      * \param chunk   The chunk number.
      *
      */
-    sse_float_type &get_chunk(int row, int chunk) const;
+    sse_float_type &get_chunk(uint row, uint chunk) const;
 		
     // scalar operations
     /**
@@ -196,7 +195,7 @@ namespace hmmlib {
      *
      * \param column The column.
      */
-    float_type column_sum(int column) const;
+    float_type column_sum(uint column) const;
 
     /**
      * \brief Computes the sum of the \a row'th row.
@@ -205,7 +204,7 @@ namespace hmmlib {
      *
      * \param row    The row.
      */
-    float_type row_sum(int row) const;
+    float_type row_sum(uint row) const;
 		
     //field access
     /**
@@ -213,14 +212,14 @@ namespace hmmlib {
      *
      * Get the number of rows in this table.
      */
-    int get_no_rows() const { return no_rows; }
+    uint get_no_rows() const { return no_rows; }
 
     /**
      * \brief Get the number of columns in this table.
      *
      * Get the number of columns in this table.
      */
-    int get_no_columns() const {return no_columns; }
+    uint get_no_columns() const {return no_columns; }
 
     /**
      * \brief Get the number of columns allocated for each row in this table.
@@ -234,7 +233,7 @@ namespace hmmlib {
      * float_type is \a float) or 2 (when the value of \a float_type
      * is \a double).
      */
-    int get_no_allocated_columns() const { return no_allocated_columns; }
+    uint get_no_allocated_columns() const { return no_allocated_columns; }
 
     /**
      * \brief Get the number of allocated chunks in each row of this table.
@@ -250,7 +249,7 @@ namespace hmmlib {
      * double), where \f$div\f$ is integer division, rounding upwards
      * if the remainder is not 0.
      */
-    int get_no_chunks_per_row() const { return no_chunks_per_row; }
+    uint get_no_chunks_per_row() const { return no_chunks_per_row; }
 		
   private:
     // copy constructor -- private; don't copy!
@@ -262,7 +261,7 @@ namespace hmmlib {
   };
 
   template<typename float_type, typename sse_float_type>
-  HMMTable<float_type, sse_float_type>::HMMTable(int no_rows, int no_columns, float_type val) {
+  HMMTable<float_type, sse_float_type>::HMMTable(uint no_rows, uint no_columns, float_type val) {
     allocator::allocate(no_rows, no_columns, *this);
     reset(val);
   }
@@ -274,19 +273,19 @@ namespace hmmlib {
 		
   template<typename float_type, typename sse_float_type>
   inline float_type &
-  HMMTable<float_type, sse_float_type>::operator()(int row, int col) {
+  HMMTable<float_type, sse_float_type>::operator()(uint row, uint col) {
     return table[no_allocated_columns * row + col];
   }
 	
   template<typename float_type, typename sse_float_type>
   inline const float_type &
-  HMMTable<float_type, sse_float_type>::operator()(int row, int col) const {
+  HMMTable<float_type, sse_float_type>::operator()(uint row, uint col) const {
     return table[no_allocated_columns * row + col];
   }
 
   template<typename float_type, typename sse_float_type>
   inline sse_float_type &
-  HMMTable<float_type, sse_float_type>::get_chunk(int row, int chunk) const {
+  HMMTable<float_type, sse_float_type>::get_chunk(uint row, uint chunk) const {
     return operators::get_chunk(row, chunk, *this);
   }
 	
@@ -327,13 +326,13 @@ namespace hmmlib {
 	
   template<typename float_type, typename sse_float_type>
   inline float_type
-  HMMTable<float_type, sse_float_type>::row_sum(int row) const {
+  HMMTable<float_type, sse_float_type>::row_sum(uint row) const {
     return operators::row_sum(row, *this);
   }
 	
   template<typename float_type, typename sse_float_type>
   inline float_type
-  HMMTable<float_type, sse_float_type>::column_sum(int column) const {
+  HMMTable<float_type, sse_float_type>::column_sum(uint column) const {
     return operators::column_sum(column, *this);
   }
 	

@@ -1,5 +1,13 @@
+#include "precompiled.h"
+#include "HMMlib/hmm_table.hpp"
+#include "HMMlib/hmm_vector.hpp"
+#include "HMMlib/hmm.hpp"
+
+using hmmlib::HMM;
+using hmmlib::HMMMatrix;
+using hmmlib::HMMVector;
+
 #define DEBUG
-#define WITH_OMP
 
 void Sequence_Stats(string sequence)
 {
@@ -41,10 +49,12 @@ void Sequence_Stats(string sequence)
     }
 
     cerr << "Sequence length: " << sequence.length() << endl;
-    cerr << "CG percenage: " << setprecision(3) << cg_counter/(double)sequence.length()*100 << "%" << endl;
-    cerr << "Observed to expected CpG ratio: " << setprecision(3)
+    cerr << "CG percenage: " << std::setprecision(3) << cg_counter/(double)sequence.length()*100 << "%" << endl;
+    cerr << "Observed to expected CpG ratio: " << std::setprecision(3)
          << cpg_counter/(double)(c_counter*g_counter)*sequence.length()*100 << "%" << endl;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Print_Cpg(sequence hidden_sequence)
 {
@@ -71,11 +81,164 @@ void Print_Cpg(sequence hidden_sequence)
     }
 }
 
-int main(int argc, char **args)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Train(sequence& observed_sequence, HMM<double>& hmm)
 {
-    ifstream input_initial_probabilities("initial_probabilities.txt");
-    ifstream input_transition_probabilities("transition_probabilities.txt");
-    ifstream input_emission_probabilities("emission_probabilities.txt");
+    HMMMatrix<double> forward_dynamic(observed_sequence.size(), hmm.get_no_states());
+    HMMVector<double> scales(observed_sequence.size());
+    cerr << "Running forward" << endl;
+    hmm.forward(observed_sequence, scales, forward_dynamic);
+
+    cerr << "Running backward" << endl;
+    HMMMatrix<double> backward_dynamic(observed_sequence.size(), hmm.get_no_states());
+    hmm.backward(observed_sequence, scales, backward_dynamic);
+
+    cerr << "Running Baum-Welch" << endl;
+    shared_ptr< HMMVector<double> > new_initial_probabilities_sptr(new HMMVector<double>(hmm.get_no_states()));
+    shared_ptr< HMMMatrix<double> > new_transition_probabilities_sptr(new HMMMatrix<double>(hmm.get_no_states(),
+                                                                                                  hmm.get_no_states()));
+    shared_ptr< HMMMatrix<double> > new_emission_probabilities_sptr(new HMMMatrix<double>(hmm.get_alphabet_size(),
+                                                                                                hmm.get_no_states()));
+    hmm.baum_welch(observed_sequence, forward_dynamic, backward_dynamic, scales, *new_initial_probabilities_sptr,
+                   *new_transition_probabilities_sptr, *new_emission_probabilities_sptr);
+
+    hmm.Set_Initial_Probabilities(new_initial_probabilities_sptr);
+    hmm.Set_Transitions_Probabilities(new_transition_probabilities_sptr);
+    hmm.Set_Emission_Probabilities(new_emission_probabilities_sptr);
+
+    cerr << "Iteration complete" << endl;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Set_HMM_Parameters(shared_ptr< HMMVector<double> > initial_probabilities_sptr,
+                       shared_ptr< HMMMatrix<double> > transition_probabilities_sptr,
+                       shared_ptr< HMMMatrix<double> > emission_probabilities_sptr)
+{
+    HMMVector<double>& initial_probabilities = *initial_probabilities_sptr;
+    HMMMatrix<double>& transition_probabilities = *transition_probabilities_sptr;
+    HMMMatrix<double>& emission_probabilities = *emission_probabilities_sptr;
+
+    ifstream parameters_txt("parameters.txt");
+
+    string line;
+
+    getline(parameters_txt, line);
+    // initial probabilities
+    double next_value;
+    for (ushort i = 0; i < initial_probabilities.get_size(); ++i)
+    {
+        parameters_txt >> next_value;
+        initial_probabilities(i) = next_value;
+    }
+
+    getline(parameters_txt, line);
+    getline(parameters_txt, line);
+    //transition probabilities
+    for (ushort i = 0; i < initial_probabilities.get_size(); ++i)
+    {
+        for (ushort j = 0; j < initial_probabilities.get_size(); ++j)
+        {
+            parameters_txt >> next_value;
+            transition_probabilities(i, j) = next_value;
+        }
+    }
+
+    getline(parameters_txt, line);
+    getline(parameters_txt, line);
+    //emission probabilities
+    for (ushort i = 0; i < emission_probabilities.get_no_rows(); ++i)
+    {
+        for (ushort j = 0; j < initial_probabilities.get_size(); ++j)
+        {
+            parameters_txt >> next_value;
+            emission_probabilities(i, j) = next_value;
+        }
+    }
+
+    parameters_txt.close();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Predict(sequence& observed_sequence, HMM<double>& hmm)
+{
+    double log_likelihood;
+    cerr << "Running viterbi" << endl;
+    sequence hidden_sequence;
+    hidden_sequence.resize(observed_sequence.size());
+    log_likelihood = hmm.viterbi(observed_sequence, hidden_sequence);
+    cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
+
+    Print_Cpg(hidden_sequence);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void Save_Parameters(HMM<double>& hmm)
+{
+    ofstream parameters_txt("new_parameters.txt");
+
+    parameters_txt << "Initial probabilities" << endl;
+    HMMVector<double> const& initial_probabilities = hmm.get_initial_probs();
+    for (uint i = 0; i < initial_probabilities.get_size(); ++i)
+    {
+        parameters_txt << initial_probabilities(i) << endl;
+    }
+
+    parameters_txt << "Transition probabilities" << endl;
+    HMMMatrix<double> const& transition_probabilities = hmm.get_trans_probs();
+    for (uint i = 0; i < transition_probabilities.get_no_rows(); ++i)
+    {
+        for (uint j = 0; j < transition_probabilities.get_no_columns(); ++j)
+        {
+            parameters_txt << transition_probabilities(i, j) << "\t";
+        }
+        parameters_txt << endl;
+    }
+
+    parameters_txt << "Emission probabilities" << endl;
+    HMMMatrix<double> const& emission_probabilities = hmm.get_emission_probs();
+    for (uint i = 0; i < emission_probabilities.get_no_rows(); ++i)
+    {
+        for (uint j = 0; j < emission_probabilities.get_no_columns(); ++j)
+        {
+            parameters_txt << emission_probabilities(i, j) << "\t";
+        }
+        parameters_txt << endl;
+    }
+
+    parameters_txt.close();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int main(int argc, char **argv)
+{
+    if (argc > 1 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h")))
+    {
+        cerr << "This program searches for CpG islands in genome" << endl;
+        cerr << "Usage: cat fasta file with genome and pass output to program" << endl;
+        cerr << "Example: cat genome.fa | ./HMM_CpG" << endl;
+        return 0;
+    }
+
+    if (argc > 1 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v")))
+    {
+        cerr << "1.0.0" << endl;
+        return 0;
+    }
+
+    string mode;
+    if (argc > 1 && (!strcmp(argv[1], "--train") || !strcmp(argv[1], "-t")))
+    {
+        mode = "train";
+    }
+    else
+    {
+        mode = "predict";
+    }
 
     vector<int> nucleotides_mapping(127, -1);
     nucleotides_mapping['a'] = 0;
@@ -98,6 +261,19 @@ int main(int argc, char **args)
     freopen("chr1.fa", "rt", stdin);
 #endif
 
+    //Sequence_Stats(observed);
+
+    const uint number_of_states = 8;
+    const uint alphabet_size = 4;
+
+    shared_ptr< HMMVector<double> > initial_probabilities(new HMMVector<double>(number_of_states));
+    shared_ptr< HMMMatrix<double> > transition_probabilities(new HMMMatrix<double>(number_of_states, number_of_states));
+    shared_ptr< HMMMatrix<double> > emission_probabilities(new HMMMatrix<double>(alphabet_size, number_of_states));
+
+    Set_HMM_Parameters(initial_probabilities, transition_probabilities, emission_probabilities);
+
+    HMM<double> hmm(initial_probabilities, transition_probabilities, emission_probabilities);
+
     string observed;
 
     string line;
@@ -109,99 +285,6 @@ int main(int argc, char **args)
 
     transform(observed.begin(), observed.end(), observed.begin(), ::tolower);
 
-    Sequence_Stats(observed);
-
-    int number_of_states = 8;
-    int alphabet_size = 4;
-    ull average_cpg_island_length = 20;
-    ull average_non_cpg_island_length = 50;
-
-    double stay_in_cpg_probability = 1 - 1/(double)average_cpg_island_length;
-    double stay_in_non_cpg_probability = 1 - 1/(double)average_non_cpg_island_length;
-
-    boost::shared_ptr<HMMVector<double> > initial_probabilities_sptr(new HMMVector<double>(number_of_states));
-    boost::shared_ptr<HMMMatrix<double> > transition_probabilities_sptr(new HMMMatrix<double>(number_of_states,
-                                                                                              number_of_states));
-    boost::shared_ptr<HMMMatrix<double> > emission_probabilities_sptr(new HMMMatrix<double>(alphabet_size,
-                                                                                            number_of_states));
-
-    HMMVector<double> &initial_probabilities = *initial_probabilities_sptr;
-    // initial probabilities
-    ushort i = 0;
-    string next_value;
-    for (ushort i = 0; i < number_of_states; ++i)
-    {
-        input_initial_probabilities >> next_value;
-        initial_probabilities(i) = atof(next_value.c_str());
-    }
-
-    input_initial_probabilities.close();
-
-    //transition probabilities
-    HMMMatrix<double> cpg_transitions(number_of_states/2, number_of_states/2);
-    for (ushort i = 0; i < number_of_states/2; ++i)
-    {
-        for (ushort j = 0; j < number_of_states/2; ++j)
-        {
-            input_transition_probabilities >> next_value;
-            cpg_transitions(i, j) = atof(next_value.c_str());
-        }
-    }
-
-    HMMMatrix<double> non_cpg_transitions(number_of_states/2, number_of_states/2);
-    for (ushort i = 0; i < number_of_states/2; ++i)
-    {
-        for (ushort j = 0; j < number_of_states/2; ++j)
-        {
-            input_transition_probabilities >> next_value;
-            non_cpg_transitions(i, j) = atof(next_value.c_str());
-        }
-    }
-
-    input_transition_probabilities.close();
-
-    HMMMatrix<double> &transition_probabilities = *transition_probabilities_sptr;
-    for (ushort i = 0; i < number_of_states; ++i)
-    {
-        for (ushort j = 0; j < number_of_states; ++j)
-        {
-            if (i < number_of_states/2 && j < number_of_states/2)
-            {
-                transition_probabilities(i, j) = cpg_transitions(i,j) * stay_in_cpg_probability;
-            }
-            else if (i < number_of_states/2 && j >= number_of_states/2)
-            {
-                transition_probabilities(i, j) = non_cpg_transitions(i,j - number_of_states/2) *
-                        (1 - stay_in_cpg_probability);
-            }
-            else if (i >= number_of_states/2 && j < number_of_states/2)
-            {
-                transition_probabilities(i, j) = cpg_transitions(i - number_of_states/2, j) *
-                        (1 - stay_in_non_cpg_probability);
-            }
-            else
-            {
-                transition_probabilities(i, j) = non_cpg_transitions(i - number_of_states/2, j - number_of_states/2)
-                        * stay_in_non_cpg_probability;
-            }
-        }
-    }
-
-    HMMMatrix<double> &emission_probabilities = *emission_probabilities_sptr;
-    for (ushort i = 0; i < number_of_states; ++i)
-    {
-        for (ushort j = 0; j < alphabet_size; ++j)
-        {
-            input_emission_probabilities >> next_value;
-            emission_probabilities(j, i) = atof(next_value.c_str());
-        }
-    }
-
-    input_emission_probabilities.close();
-
-    cerr << "Constructing HMM" << endl;
-    HMM<double> hmm(initial_probabilities_sptr, transition_probabilities_sptr, emission_probabilities_sptr);
-
     sequence observed_sequence;
     observed_sequence.reserve(observed.length());
 
@@ -209,7 +292,7 @@ int main(int argc, char **args)
     {
         if (observed[i] != 'a' && observed[i] != 'c' && observed[i] != 'g' && observed[i] != 't' && observed[i] != 'n')
         {
-            cerr << 'Unexpected character. Possible characters are a, c, g, t, n (in any case)' << endl;
+            cerr << "Unexpected character. Possible characters are a, c, g, t, n (in any register)" << endl;
             return 1;
         }
 
@@ -217,58 +300,29 @@ int main(int argc, char **args)
         {
             observed_sequence.push_back(nucleotides_mapping[observed[i]]);
         }
+        else
+        {
+            if (observed_sequence.size() > 0)
+            {
+                if (mode == "predict")
+                {
+                    Predict(observed_sequence, hmm);
+                }
+                else
+                {
+                    Train(observed_sequence, hmm);
+                }
+
+                observed_sequence.clear();
+            }
+        }
     }
 
-    double log_likelihood;
-//    cerr << "Running viterbi" << endl;
-    sequence hidden_sequence;
-    hidden_sequence.resize(observed_sequence.size());
-//    log_likelihood = hmm.viterbi(observed_sequence, hidden_sequence);
-//    cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
-
-//    Print_Cpg(hidden_sequence);
-
-    HMMMatrix<double> forward_dynamic(observed_sequence.size(), number_of_states);
-    HMMVector<double> scales(observed_sequence.size());
-    cerr << "Running forward" << endl;
-    hmm.forward(observed_sequence, scales, forward_dynamic);
-
-    cerr << "Running likelihood" << endl;
-    log_likelihood = hmm.likelihood(scales);
-    cerr << "Log likelihood of observed sequence: " << log_likelihood << endl;
-
-    cerr << "Running backward" << endl;
-    HMMMatrix<double> backward_dynamic(observed_sequence.size(), number_of_states);
-    hmm.backward(observed_sequence, scales, backward_dynamic);
-
-    cerr << "Running posterior decoding" << endl;
-    HMMMatrix<double> posterior_decoding(observed_sequence.size(), number_of_states);
-    hmm.posterior_decoding(observed_sequence, forward_dynamic, backward_dynamic, scales, posterior_decoding);
-
-    cerr << "Running Baum-Welch" << endl;
-    boost::shared_ptr<HMMVector<double> > new_initial_probabilities_sptr(new HMMVector<double>(number_of_states));
-    boost::shared_ptr<HMMMatrix<double> > new_transition_probabilities_sptr(new HMMMatrix<double>(number_of_states,
-                                                                                                  number_of_states));
-    boost::shared_ptr<HMMMatrix<double> > new_emission_probabilities_sptr(new HMMMatrix<double>(alphabet_size,
-                                                                                                number_of_states));
-    hmm.baum_welch(observed_sequence, forward_dynamic, backward_dynamic, scales, *new_initial_probabilities_sptr,
-                   *new_transition_probabilities_sptr, *new_emission_probabilities_sptr);
-
-    cerr << "Constructing new HMM" << endl;
-    HMM<double> new_hmm(new_initial_probabilities_sptr, new_transition_probabilities_sptr, new_emission_probabilities_sptr);
-
-    cerr << "Running forward on new HMM" << endl;
-    new_hmm.forward(observed_sequence, scales, forward_dynamic);
-    cerr << "Running likelihood on new HMM" << endl;
-    log_likelihood = new_hmm.likelihood(scales);
-    cerr << "Log likelihood of observed sequence in new HMM: " << log_likelihood << endl;
-
-    cerr << "Running viterbi" << endl;
-    log_likelihood = new_hmm.viterbi(observed_sequence, hidden_sequence);
-    cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
-
-    cout << endl;
-    Print_Cpg(hidden_sequence);
+    //save new parameters
+    if (mode == "train")
+    {
+        Save_Parameters(hmm);
+    }
 
     return 0;
 }

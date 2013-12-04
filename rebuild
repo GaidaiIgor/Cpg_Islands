@@ -1,0 +1,4 @@
+make clean
+touch src/main.cpp
+touch src/precompiled.h
+make

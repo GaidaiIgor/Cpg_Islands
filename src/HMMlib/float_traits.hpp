@@ -22,7 +22,7 @@
 #ifndef FLOAT_TRAITS_HPP
 #define FLOAT_TRAITS_HPP
 
-#include <pmmintrin.h>
+#include "../precompiled.h"
 
 namespace hmmlib {
 

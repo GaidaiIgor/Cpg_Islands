@@ -22,22 +22,11 @@
 #ifndef HMM_HPP
 #define HMM_HPP
 
-#include <boost/shared_ptr.hpp>
-
-#include <vector>
-#include <cmath>
-#include <assert.h>
-using namespace std;
+#include "../precompiled.h"
 
 #include "hmm_matrix.hpp"
 #include "hmm_vector.hpp"
 #include "sse_operator_traits.hpp"
-
-#include <pmmintrin.h>
-
-#ifdef WITH_OMP
-#include <omp.h>
-#endif
 
 typedef std::vector<unsigned int> sequence;
 
@@ -78,9 +67,9 @@ namespace hmmlib {
 		
     typedef SSEOperatorTraits<float_type, sse_float_type> sse_operations_traits;
 		
-    boost::shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob;
-    boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob;
-    boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob;
+    shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob;
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob;
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob;
 		
     const int no_states;
     const int alphabet_size;
@@ -109,16 +98,31 @@ namespace hmmlib {
      *
      * \pre The size of \a initial_prob must match the number of rows in \a trans_prob, the number of columns in trans_prob and the number columns in emission_prob.
      */
-    HMM(boost::shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
-	boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
-	boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob);
+    HMM(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob);
 
     // field accessors and mutators
     const HMMVector<float_type,sse_float_type> &get_initial_probs() { return *initial_prob; }
     const HMMMatrix<float_type,sse_float_type> &get_trans_probs() { return *trans_prob; }
     const HMMMatrix<float_type,sse_float_type> &get_emission_probs() { return *emission_prob; }
-    const int get_no_states() const { return no_states; }
-    const int get_alphabet_size() const { return alphabet_size; }
+    int get_no_states() const { return no_states; }
+    int get_alphabet_size() const { return alphabet_size; }
+
+    void Set_Initial_Probabilities(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob)
+    {
+        this->initial_prob = initial_prob;
+    }
+
+    void Set_Transitions_Probabilities(shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob)
+    {
+        this->trans_prob = trans_prob;
+    }
+
+    void Set_Emission_Probabilities(shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob)
+    {
+        this->emission_prob = emission_prob;
+    }
     
 
     // algorithms
@@ -254,9 +258,9 @@ namespace hmmlib {
   // ########## Implementation comes here ##########
   // ###############################################
   template <typename float_type, typename sse_float_type>
-  HMM<float_type,sse_float_type>::HMM(boost::shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
-				       boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
-				       boost::shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob)
+  HMM<float_type,sse_float_type>::HMM(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
+                       shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
+                       shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob)
     : 
     initial_prob(initial_prob), 
     trans_prob(trans_prob), 
@@ -268,7 +272,6 @@ namespace hmmlib {
     assert(emission_prob->get_no_columns() == no_states);
     assert(emission_prob->get_no_rows() == alphabet_size);
   }
-
 
   template <typename float_type, typename sse_float_type>
   void
@@ -317,7 +320,6 @@ namespace hmmlib {
     for(chunk = 0; chunk < no_chunks; ++chunk)
       F.get_chunk(0,chunk) *= scale;
 
-    cerr << "main_loop" << endl;
     double percentage = 0;
     for (int i = 1; i < length; ++i) { // filling in i'th row of F: F(i, -)
 
@@ -365,10 +367,6 @@ namespace hmmlib {
     // just making it a little easier on ourselves...
     const HMMMatrix<float_type, sse_float_type> &T = *trans_prob;
     const HMMMatrix<float_type, sse_float_type> &E = *emission_prob;
-
-    // boost::shared_ptr<HMMMatrix<float_type, sse_float_type> > T_t_ptr(new HMMMatrix<float_type, sse_float_type>(T.get_no_columns(), T.get_no_rows()));
-    // HMMMatrix<float_type, sse_float_type> &T_t = *T_t_ptr;
-    // T.transpose(T_t);
 
     const int length = obsseq.size();
     const int no_chunks = B.get_no_chunks_per_row();
@@ -474,7 +472,15 @@ namespace hmmlib {
     }
 		
     // compute transition and emission counts
+    double percentage = 0;
     for (int i = 1; i < length; ++i) {
+
+        if (i/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       x = obsseq[i];
       #ifdef WITH_OMP
       #pragma omp parallel for
@@ -533,11 +539,11 @@ namespace hmmlib {
     
     const int no_chunks = path_probs.get_no_chunks_per_row();
     
-    boost::shared_ptr<HMMMatrix<float_type, sse_float_type> > T_t_ptr(new HMMMatrix<float_type, sse_float_type>(T.get_no_columns(), T.get_no_rows()));
-    boost::shared_ptr<HMMMatrix<float_type, sse_float_type> > T_t_log_ptr(new HMMMatrix<float_type, sse_float_type>(T.get_no_rows(), T.get_no_columns()));
-    HMMMatrix<float_type, sse_float_type> &T_t_log = *T_t_log_ptr;
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > T_t_ptr(new HMMMatrix<float_type, sse_float_type>(T.get_no_columns(), T.get_no_rows()));
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > T_t_log_ptr(new HMMMatrix<float_type, sse_float_type>(T.get_no_rows(), T.get_no_columns()));
+    HMMMatrix<float_type, sse_float_type>& T_t_log = *T_t_log_ptr;
     
-    boost::shared_ptr<HMMMatrix<float_type, sse_float_type> > E_log_ptr(new HMMMatrix<float_type, sse_float_type>(E.get_no_rows(), E.get_no_columns()));
+    shared_ptr< HMMMatrix<float_type, sse_float_type> > E_log_ptr(new HMMMatrix<float_type, sse_float_type>(E.get_no_rows(), E.get_no_columns()));
     HMMMatrix<float_type, sse_float_type> &E_log = *E_log_ptr;
 
     // construct T_t_log and E_log
@@ -552,7 +558,15 @@ namespace hmmlib {
     }
 
     // Recursion
+    double percentage = 0;
     for(int i = 1; i < length; ++i) { // fill ith row of path_probs
+
+        if (i/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       x = obsseq[i];
       #ifdef WITH_OMP
       #pragma omp parallel for
@@ -588,7 +602,15 @@ namespace hmmlib {
     hiddenseq[length - 1] = hidden_state;
     
     // Backtracking - recursion
+    percentage = 0;
     for (unsigned i = length - 1; i > 0; --i) {
+
+        if ((length - i)/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       float_type max = -INFINITY;
       float_type tmp;
       int maxidx = 0;
@@ -618,7 +640,16 @@ namespace hmmlib {
     #ifdef WITH_OMP
     #pragma omp parallel for
     #endif
+
+    double percentage = 0;
     for (int i = 0; i < length; ++i) {
+
+        if (i/(double)length > percentage + 0.1)
+        {
+            percentage += 0.1;
+            cerr << "Completed " << percentage*100 << "%" << endl;
+        }
+
       sse_float_type scale;
       sse_operations_traits::set_all(scale, (float_type) (1.0/scales(i)));
       for (int chunk = 0; chunk < no_chunks; ++chunk) {

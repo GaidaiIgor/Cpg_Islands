@@ -22,9 +22,8 @@
 #ifndef HMM_VECTOR_HPP
 #define HMM_VECTOR_HPP
 
+#include "../precompiled.h"
 #include "hmm_table.hpp"
-
-#include <pmmintrin.h>
 
 namespace hmmlib {
 
@@ -69,7 +68,7 @@ namespace hmmlib {
      * float_type is \a float, sse_float_type must be either \a __m128
      * (default) or \a float.
      */
-    HMMVector(int size, float_type val = 0.0);
+    HMMVector(uint size, float_type val = 0.0);
 
     ~HMMVector();
 
@@ -140,14 +139,14 @@ namespace hmmlib {
      *
      * \returns The size of the vector.
      */
-    const int get_size() const;
+    uint get_size() const;
   private:
     HMMVector(const HMMVector &);
-    int size;
+    uint size;
   };
 	
   template <typename float_type, typename sse_float_type>
-  HMMVector<float_type, sse_float_type>::HMMVector(int size, float_type val)
+  HMMVector<float_type, sse_float_type>::HMMVector(uint size, float_type val)
     : HMMTable<float_type, sse_float_type>(1, size, val), size(size)
   { }
 
@@ -160,7 +159,6 @@ namespace hmmlib {
   inline HMMVector<float_type, sse_float_type> &
   HMMVector<float_type,sse_float_type>::operator=(float_type val) {
     this->reset(val);
-    //reset(val);
     return *this;
   }
 	
@@ -190,7 +188,7 @@ namespace hmmlib {
   }
 
   template <typename float_type, typename sse_float_type>
-  inline const int
+  inline uint
   HMMVector<float_type, sse_float_type>::get_size() const {
     return size;
   }	

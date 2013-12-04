@@ -22,11 +22,7 @@
 #ifndef OPERATOR_TRAITS_HPP
 #define OPERATOR_TRAITS_HPP
 
-#include <pmmintrin.h>
-#include <cstdlib>
-#include <assert.h>
-#include <iostream>
-#include <cmath>
+#include "../precompiled.h"
 
 namespace hmmlib {
 

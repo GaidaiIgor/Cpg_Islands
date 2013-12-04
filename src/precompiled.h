@@ -3,8 +3,6 @@
 
 #if defined __cplusplus
 
-//#define WITH_OMP
-
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -12,20 +10,31 @@
 #include <algorithm>
 #include <string>
 #include <iomanip>
+#include <cmath>
+#include <assert.h>
+#include <cstdlib>
+#include <pmmintrin.h>
+#include <memory>
+#include <cstring>
 
-#include <boost/algorithm/string.hpp>
-
-#include "HMMlib/hmm_table.hpp"
-#include "HMMlib/hmm_vector.hpp"
-#include "HMMlib/hmm.hpp"
+#ifdef WITH_OMP
+#include <omp.h>
+#endif
 
 typedef unsigned long long ull;
 typedef unsigned int uint;
 typedef unsigned short ushort;
 typedef unsigned char uchar;
 
-using namespace hmmlib;
-using namespace std;
+using std::shared_ptr;
+using std::cerr;
+using std::cin;
+using std::cout;
+using std::endl;
+using std::string;
+using std::ifstream;
+using std::ofstream;
+using std::vector;
 
 #endif
 
