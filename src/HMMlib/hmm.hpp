@@ -98,9 +98,9 @@ namespace hmmlib {
      *
      * \pre The size of \a initial_prob must match the number of rows in \a trans_prob, the number of columns in trans_prob and the number columns in emission_prob.
      */
-    HMM(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
-    shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
-    shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob);
+    HMM(shared_ptr< HMMVector<float_type, sse_float_type> >& initial_prob,
+    shared_ptr< HMMMatrix<float_type, sse_float_type> >& trans_prob,
+    shared_ptr< HMMMatrix<float_type, sse_float_type> >& emission_prob);
 
     // field accessors and mutators
     const HMMVector<float_type,sse_float_type> &get_initial_probs() { return *initial_prob; }
@@ -249,7 +249,184 @@ namespace hmmlib {
 			    const HMMMatrix<float_type, sse_float_type> &B, 
 			    const HMMVector<float_type, sse_float_type> &scales, 
 			    HMMMatrix<float_type, sse_float_type> &post);
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Initial(shared_ptr< HMMVector<double> > validated_sptr)
+      {
+          double sum = 0;
+          HMMVector<double>& validated = *validated_sptr;
+          for (uint i = 0; i < validated.get_size(); ++i)
+          {
+              if (validated(i) < 0 || validated(i) > 1)
+              {
+                  throw "Incorrect file format";
+              }
+              sum += validated(i);
+          }
+
+          if (sum != 1)
+          {
+              throw "Incorrect file format";
+          }
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Transitions(shared_ptr< HMMMatrix<double> > validated_sptr)
+      {
+          Validate_Values(validated_sptr);
+          Validate_Rows(validated_sptr);
+          Validate_Columns(validated_sptr);
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Rows(shared_ptr< HMMMatrix<double> > validated_sptr)
+      {
+          HMMMatrix<double>& validated = *validated_sptr;
+
+          for (uint i = 0; i < validated.get_no_rows(); ++i)
+          {
+              double sum = 0;
+              for (uint j = 0; j < validated.get_no_columns(); ++j)
+              {
+                  sum += validated(i, j);
+              }
+
+              if (sum != 1)
+              {
+                  throw "Incorrect file format";
+              }
+          }
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Columns(shared_ptr< HMMMatrix<double> > validated_sptr)
+      {
+          HMMMatrix<double>& validated = *validated_sptr;
+
+          for (uint i = 0; i < validated.get_no_columns(); ++i)
+          {
+              double sum = 0;
+              for (uint j = 0; j < validated.get_no_rows(); ++j)
+              {
+                  sum += validated(j, i);
+              }
+
+              if (sum != 1)
+              {
+                  throw "Incorrect file format";
+              }
+          }
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Values(shared_ptr< HMMMatrix<double> > validated_sptr)
+      {
+          HMMMatrix<double>& validated = *validated_sptr;
+
+          for (uint i = 0; i < validated.get_no_columns(); ++i)
+          {
+              for (uint j = 0; j < validated.get_no_rows(); ++j)
+              {
+                  if (validated(i, j) < 0 || validated(i, j) > 1)
+                  {
+                      throw "Incorrect file format";
+                  }
+              }
+          }
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Validate_Emissions(shared_ptr< HMMMatrix<double> > validated_sptr)
+      {
+          Validate_Values(validated_sptr);
+          Validate_Columns(validated_sptr);
+      }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Save_Parameters()
+      {
+          cout << "Initial probabilities" << endl;
+          HMMVector<double> const& initial_probabilities = get_initial_probs();
+          for (uint i = 0; i < initial_probabilities.get_size(); ++i)
+          {
+              cout << initial_probabilities(i) << endl;
+          }
+
+          cout << "Transition probabilities" << endl;
+          HMMMatrix<double> const& transition_probabilities = get_trans_probs();
+          for (uint i = 0; i < transition_probabilities.get_no_rows(); ++i)
+          {
+              for (uint j = 0; j < transition_probabilities.get_no_columns(); ++j)
+              {
+                  cout << transition_probabilities(i, j) << "\t";
+              }
+              cout << endl;
+          }
+
+          cout << "Emission probabilities" << endl;
+          HMMMatrix<double> const& emission_probabilities = get_emission_probs();
+          for (uint i = 0; i < emission_probabilities.get_no_rows(); ++i)
+          {
+              for (uint j = 0; j < emission_probabilities.get_no_columns(); ++j)
+              {
+                  cout << emission_probabilities(i, j) << "\t";
+              }
+              cout << endl;
+          }
+      }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Train(sequence& observed_sequence)
+      {
+          HMMMatrix<double> forward_dynamic(observed_sequence.size(), get_no_states());
+          HMMVector<double> scales(observed_sequence.size());
+          cerr << "Running forward" << endl;
+          forward(observed_sequence, scales, forward_dynamic);
+
+          cerr << "Running backward" << endl;
+          HMMMatrix<double> backward_dynamic(observed_sequence.size(), get_no_states());
+          backward(observed_sequence, scales, backward_dynamic);
+
+          cerr << "Running Baum-Welch" << endl;
+          shared_ptr< HMMVector<double> > new_initial_probabilities_sptr(new HMMVector<double>(get_no_states()));
+          shared_ptr< HMMMatrix<double> > new_transition_probabilities_sptr(new HMMMatrix<double>(get_no_states(),
+                                                                                                        get_no_states()));
+          shared_ptr< HMMMatrix<double> > new_emission_probabilities_sptr(new HMMMatrix<double>(get_alphabet_size(),
+                                                                                                      get_no_states()));
+          baum_welch(observed_sequence, forward_dynamic, backward_dynamic, scales, *new_initial_probabilities_sptr,
+                         *new_transition_probabilities_sptr, *new_emission_probabilities_sptr);
+
+          Set_Initial_Probabilities(new_initial_probabilities_sptr);
+          Set_Transitions_Probabilities(new_transition_probabilities_sptr);
+          Set_Emission_Probabilities(new_emission_probabilities_sptr);
+
+          cerr << "Iteration complete" << endl;
+      }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      void Predict(sequence& observed_sequence, sequence& hidden_sequence)
+      {
+          double log_likelihood;
+          cerr << "Running viterbi" << endl;
+          hidden_sequence.resize(observed_sequence.size());
+          log_likelihood = viterbi(observed_sequence, hidden_sequence);
+          cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
+      }
     
+      static void Test(shared_ptr< HMMVector<double> > ptr)
+      {
+
+      }
+
     friend class AllocatorTraits<float_type, sse_float_type>;
     friend class OperatorTraits<float_type, sse_float_type>;
   };
@@ -258,12 +435,12 @@ namespace hmmlib {
   // ########## Implementation comes here ##########
   // ###############################################
   template <typename float_type, typename sse_float_type>
-  HMM<float_type,sse_float_type>::HMM(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob,
-                       shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob,
-                       shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob)
+  HMM<float_type,sse_float_type>::HMM(shared_ptr< HMMVector<float_type, sse_float_type> >& initial_prob,
+                       shared_ptr< HMMMatrix<float_type, sse_float_type> >& trans_prob,
+                       shared_ptr< HMMMatrix<float_type, sse_float_type> >& emission_prob)
     : 
-    initial_prob(initial_prob), 
-    trans_prob(trans_prob), 
+    initial_prob(initial_prob),
+    trans_prob(trans_prob),
     emission_prob(emission_prob),
     no_states(initial_prob->get_size()),
     alphabet_size(emission_prob->get_no_rows()) {
@@ -271,6 +448,10 @@ namespace hmmlib {
     assert(trans_prob->get_no_rows() == no_states);
     assert(emission_prob->get_no_columns() == no_states);
     assert(emission_prob->get_no_rows() == alphabet_size);
+
+    Validate_Initial(initial_prob);
+    Validate_Transitions(trans_prob);
+    Validate_Emissions(emission_prob);
   }
 
   template <typename float_type, typename sse_float_type>
