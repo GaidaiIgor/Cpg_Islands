@@ -71,8 +71,8 @@ namespace hmmlib {
     shared_ptr< HMMMatrix<float_type, sse_float_type> > trans_prob;
     shared_ptr< HMMMatrix<float_type, sse_float_type> > emission_prob;
 		
-    const int no_states;
-    const int alphabet_size;
+    const uint no_states;
+    const uint alphabet_size;
     
   public :
     /**
@@ -106,8 +106,8 @@ namespace hmmlib {
     const HMMVector<float_type,sse_float_type> &get_initial_probs() { return *initial_prob; }
     const HMMMatrix<float_type,sse_float_type> &get_trans_probs() { return *trans_prob; }
     const HMMMatrix<float_type,sse_float_type> &get_emission_probs() { return *emission_prob; }
-    int get_no_states() const { return no_states; }
-    int get_alphabet_size() const { return alphabet_size; }
+    uint get_no_states() const { return no_states; }
+    uint get_alphabet_size() const { return alphabet_size; }
 
     void Set_Initial_Probabilities(shared_ptr< HMMVector<float_type, sse_float_type> > initial_prob)
     {
@@ -265,7 +265,8 @@ namespace hmmlib {
               sum += validated(i);
           }
 
-          if (sum != 1)
+          double eps = 1e-9;
+          if (sum < sum - eps || sum > sum + eps)
           {
               throw "Incorrect file format";
           }
@@ -277,7 +278,6 @@ namespace hmmlib {
       {
           Validate_Values(validated_sptr);
           Validate_Rows(validated_sptr);
-          Validate_Columns(validated_sptr);
       }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -294,7 +294,8 @@ namespace hmmlib {
                   sum += validated(i, j);
               }
 
-              if (sum != 1)
+              double eps = 1e-9;
+              if (sum < sum - eps || sum > sum + eps)
               {
                   throw "Incorrect file format";
               }
@@ -315,7 +316,8 @@ namespace hmmlib {
                   sum += validated(j, i);
               }
 
-              if (sum != 1)
+              double eps = 1e-9;
+              if (sum < sum - eps || sum > sum + eps)
               {
                   throw "Incorrect file format";
               }
@@ -328,9 +330,9 @@ namespace hmmlib {
       {
           HMMMatrix<double>& validated = *validated_sptr;
 
-          for (uint i = 0; i < validated.get_no_columns(); ++i)
+          for (uint i = 0; i < validated.get_no_rows(); ++i)
           {
-              for (uint j = 0; j < validated.get_no_rows(); ++j)
+              for (uint j = 0; j < validated.get_no_columns(); ++j)
               {
                   if (validated(i, j) < 0 || validated(i, j) > 1)
                   {
@@ -416,15 +418,12 @@ namespace hmmlib {
       void Predict(sequence& observed_sequence, sequence& hidden_sequence)
       {
           double log_likelihood;
+          static uint iteration_number = 0;
+          cerr << "Sequence " << iteration_number++ << endl;
           cerr << "Running viterbi" << endl;
           hidden_sequence.resize(observed_sequence.size());
           log_likelihood = viterbi(observed_sequence, hidden_sequence);
-          cerr << "\nLog likelihood of hidden sequence: " << log_likelihood << endl;
-      }
-    
-      static void Test(shared_ptr< HMMVector<double> > ptr)
-      {
-
+          cerr << "Log likelihood of hidden sequence: " << log_likelihood << "\n" << endl;
       }
 
     friend class AllocatorTraits<float_type, sse_float_type>;
@@ -740,6 +739,7 @@ namespace hmmlib {
 
     // Recursion
     double percentage = 0;
+    cerr << "Stage 1" << endl;
     for(int i = 1; i < length; ++i) { // fill ith row of path_probs
 
         if (i/(double)length > percentage + 0.1)
@@ -771,6 +771,8 @@ namespace hmmlib {
       }
     }
 
+    cerr << "Completed 100%" << endl;
+
     // Backtracking - final row
     float_type loglikelihood = -INFINITY;
     int hidden_state = 0;
@@ -783,6 +785,7 @@ namespace hmmlib {
     hiddenseq[length - 1] = hidden_state;
     
     // Backtracking - recursion
+    cerr << "Stage 2" << endl;
     percentage = 0;
     for (unsigned i = length - 1; i > 0; --i) {
 
@@ -805,6 +808,8 @@ namespace hmmlib {
       hidden_state = maxidx;
       hiddenseq[i-1] = hidden_state;
     }
+
+    cerr << "Completed 100%" << endl;
 
     return loglikelihood;
   }

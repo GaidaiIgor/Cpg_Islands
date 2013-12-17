@@ -1,6 +1,6 @@
 CXX = g++
 COMMON_FLAGS =
-CXXFLAGS = -Wall -msse3 -fexceptions -g $(COMMON_FLAGS)
+CXXFLAGS = -Wall -msse3 -fexceptions -g -std=c++11 $(COMMON_FLAGS)
 LINKER_FLAGS = $(COMMON_FLAGS)
 
 SRCDIR = src

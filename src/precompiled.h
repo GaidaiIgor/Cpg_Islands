@@ -35,6 +35,7 @@ using std::string;
 using std::ifstream;
 using std::ofstream;
 using std::vector;
+using std::istreambuf_iterator;
 
 #endif
 
