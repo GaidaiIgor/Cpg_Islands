@@ -9,7 +9,7 @@ PRECOMPILED_HEADER = precompiled.h
 
 CXXFLAGS += -include $(SRCDIR)/$(PRECOMPILED_HEADER)
 
-EXEC = $(OUTDIR)/prg
+EXEC = $(OUTDIR)/HMM_CpG
 SOURCES = $(wildcard src/*.cpp)
 OBJECTS := $(SOURCES:$(SRCDIR)/%.cpp=$(OUTDIR)/%.o)
 PRECOMPILED = $(SRCDIR)/$(PRECOMPILED_HEADER).gch
