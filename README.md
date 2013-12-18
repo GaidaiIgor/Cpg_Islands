@@ -22,7 +22,8 @@ Prediction mode:
 Training mode:
 
     HMM_CpG [--cpg <file_with_cpg_examples>] [--non-cpg <file_with_non_cpg_examples>] [-acl <positive integer>] [-ancl <positive integer>]
-    Note that you should specify at least one of --cpg or --non-cpg keys to activate training mode.
+
+Note that you should specify at least one of --cpg or --non-cpg keys to activate training mode.
 
 --cpg - allows to specify file with training cpg examples. Examples must be separated with 'N'.
 
