@@ -1,0 +1,4 @@
+1 arg - file
+2 arg - line start
+3 arg - line end
+stdout - sliced file

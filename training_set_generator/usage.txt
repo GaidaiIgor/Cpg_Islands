@@ -1,0 +1,5 @@
+1 arg - chromosome
+2 arg - bed with true cpg islands
+cpg training set will be written to 'cpg_training_set' file
+non cpg training set will be written to 'non_cpg_training_set' file
+islands must be sorted in increasing order
