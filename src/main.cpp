@@ -393,6 +393,12 @@ void Predict(ifstream& parameters_file, string& chromosome_name)
 
 int main(int argc, char **argv)
 {    
+    if (argc < 2)
+    {
+        cerr << "You shoud specify args. Use --help option if you don't want which.\n Your current directory should be directory where executable is stored" << endl;
+        return 1;
+    }
+
     Mode mode = predict;
 
     bool parameters_expectation = false;
@@ -487,7 +493,7 @@ int main(int argc, char **argv)
 
         if (!strcmp(argv[arg], "--help") || !strcmp(argv[arg], "-h"))
         {
-            ifstream help("readme.txt");
+            ifstream help("..\\README.md");
             string text;
             text.assign(istreambuf_iterator<char>(help), istreambuf_iterator<char>());
             cerr << text << endl;

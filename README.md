@@ -3,6 +3,12 @@ Cpg_Islands
 
 Search for cpg islands in genome using HMM
 
+Requirements
+============
+
+OS: Linux (tested on Ubuntu 13.10)
+C++ compiler with c++11 standard support
+
 Installation
 ===========
 
